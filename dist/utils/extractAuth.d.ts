@@ -38,3 +38,15 @@ export declare const extractAuthForUrl: (url: string, baseUrl?: string) => {
     username: string;
     password: string;
 } | null;
+/**
+ * Add baseUrl credentials to a single internal URL, e.g. an image source.
+ * Relative and protocol-relative URLs are resolved against the baseUrl first.
+ * External URLs, URLs that already contain credentials, anchors, data: and
+ * blob: URLs are returned unchanged, so credentials never leak to third
+ * parties.
+ *
+ * @param url - Source URL (may be relative like '/img/logo.png')
+ * @param baseUrl - Base URL that may contain credentials (e.g. https://user:pass@domain.com)
+ * @returns Absolute URL with credentials for internal URLs, otherwise the input unchanged
+ */
+export declare const addCredentialsToUrl: (url: string, baseUrl?: string) => string;
