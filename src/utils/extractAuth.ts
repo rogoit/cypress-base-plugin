@@ -124,3 +124,56 @@ export const extractAuthForUrl = (
 
   return urlHost === baseUrlHost ? auth : null
 }
+
+/**
+ * Add baseUrl credentials to a single internal URL, e.g. an image source.
+ * Relative and protocol-relative URLs are resolved against the baseUrl first.
+ * External URLs, URLs that already contain credentials, anchors, data: and
+ * blob: URLs are returned unchanged, so credentials never leak to third
+ * parties.
+ *
+ * @param url - Source URL (may be relative like '/img/logo.png')
+ * @param baseUrl - Base URL that may contain credentials (e.g. https://user:pass@domain.com)
+ * @returns Absolute URL with credentials for internal URLs, otherwise the input unchanged
+ */
+export const addCredentialsToUrl = (url: string, baseUrl?: string): string => {
+  if (
+    !url ||
+    url.startsWith('data:') ||
+    url.startsWith('blob:') ||
+    url.startsWith('#')
+  ) {
+    return url
+  }
+
+  if (!baseUrl) {
+    baseUrl =
+      typeof Cypress !== 'undefined' ? Cypress.config('baseUrl') : undefined
+  }
+
+  if (!baseUrl) return url
+
+  const auth = extractAuth(baseUrl)
+  if (!auth) return url
+
+  let absolute = url
+  if (isRelativeUrl(url)) {
+    try {
+      absolute = new URL(url, baseUrl).toString()
+    } catch {
+      return url
+    }
+  } else if (url.startsWith('//')) {
+    try {
+      absolute = new URL(`https:${url}`).toString()
+    } catch {
+      return url
+    }
+  }
+
+  if (absolute.includes('@')) return absolute
+
+  if (!extractAuthForUrl(absolute, baseUrl)) return absolute
+
+  return applyAuth(absolute, auth)
+}
