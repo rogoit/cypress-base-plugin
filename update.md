@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.8
+
+- Add addCredentialsToUrl util that injects basic auth credentials into internal image URLs
+- Rewrite internal img src and srcset candidates with the baseUrl credentials in ttValidateSubpagesAndImages
+- Required for htaccess protected staging systems where browser image requests do not inherit the page credentials
+- No-op for sites without credentials in the baseUrl, external URLs never receive credentials
+
 ## 2.2.7
 
 - Add extractAuthForUrl util that returns basic auth credentials only for internal URLs
