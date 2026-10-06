@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.extractAuthForUrl = exports.addCredentialsToInternalLinks = exports.applyAuth = exports.extractAuth = void 0;
+exports.addCredentialsToUrl = exports.extractAuthForUrl = exports.addCredentialsToInternalLinks = exports.applyAuth = exports.extractAuth = void 0;
 /**
  * Extract Basic Auth credentials from a URL
  * @param url - URL string that may contain Basic Auth credentials
@@ -116,3 +116,54 @@ const extractAuthForUrl = (url, baseUrl) => {
     return urlHost === baseUrlHost ? auth : null;
 };
 exports.extractAuthForUrl = extractAuthForUrl;
+/**
+ * Add baseUrl credentials to a single internal URL, e.g. an image source.
+ * Relative and protocol-relative URLs are resolved against the baseUrl first.
+ * External URLs, URLs that already contain credentials, anchors, data: and
+ * blob: URLs are returned unchanged, so credentials never leak to third
+ * parties.
+ *
+ * @param url - Source URL (may be relative like '/img/logo.png')
+ * @param baseUrl - Base URL that may contain credentials (e.g. https://user:pass@domain.com)
+ * @returns Absolute URL with credentials for internal URLs, otherwise the input unchanged
+ */
+const addCredentialsToUrl = (url, baseUrl) => {
+    if (!url ||
+        url.startsWith('data:') ||
+        url.startsWith('blob:') ||
+        url.startsWith('#')) {
+        return url;
+    }
+    if (!baseUrl) {
+        baseUrl =
+            typeof Cypress !== 'undefined' ? Cypress.config('baseUrl') : undefined;
+    }
+    if (!baseUrl)
+        return url;
+    const auth = (0, exports.extractAuth)(baseUrl);
+    if (!auth)
+        return url;
+    let absolute = url;
+    if (isRelativeUrl(url)) {
+        try {
+            absolute = new URL(url, baseUrl).toString();
+        }
+        catch {
+            return url;
+        }
+    }
+    else if (url.startsWith('//')) {
+        try {
+            absolute = new URL(`https:${url}`).toString();
+        }
+        catch {
+            return url;
+        }
+    }
+    if (absolute.includes('@'))
+        return absolute;
+    if (!(0, exports.extractAuthForUrl)(absolute, baseUrl))
+        return absolute;
+    return (0, exports.applyAuth)(absolute, auth);
+};
+exports.addCredentialsToUrl = addCredentialsToUrl;
