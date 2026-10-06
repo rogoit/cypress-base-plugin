@@ -3,6 +3,46 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ttValidateSubpagesAndImages = void 0;
 const tt_get_internal_links_1 = require("./tt-get-internal-links");
 const tt_validate_all_images_response_status_ok_1 = require("./tt-validate-all-images-response-status-ok");
+const extractAuth_1 = require("./../utils/extractAuth");
+/**
+ * Rewrites internal image sources (src and srcset candidates) to include
+ * the baseUrl basic auth credentials. Required when the site is protected
+ * by htaccess basic auth, because browser image requests do not inherit
+ * the credentials from the page URL. No-op when the baseUrl has no
+ * credentials.
+ */
+const rewriteInternalImageSources = () => {
+    cy.get('body', { log: false }).then(($body) => {
+        const baseUrl = Cypress.config('baseUrl');
+        if (!baseUrl || !(0, extractAuth_1.extractAuth)(baseUrl))
+            return;
+        $body.find('img[src], img[srcset]').each((_, element) => {
+            const img = element;
+            if (img.getAttribute('src')) {
+                const rewritten = (0, extractAuth_1.addCredentialsToUrl)(img.src, baseUrl);
+                if (rewritten !== img.src) {
+                    img.src = rewritten;
+                }
+            }
+            const srcset = img.getAttribute('srcset');
+            if (srcset) {
+                const rewritten = srcset
+                    .split(',')
+                    .map((candidate) => {
+                    const parts = candidate.trim().split(/\s+/);
+                    if (parts[0] === '')
+                        return null;
+                    return [(0, extractAuth_1.addCredentialsToUrl)(parts[0], baseUrl), ...parts.slice(1)].join(' ');
+                })
+                    .filter((candidate) => candidate !== null)
+                    .join(', ');
+                if (rewritten !== srcset) {
+                    img.srcset = rewritten;
+                }
+            }
+        });
+    });
+};
 const scrollTillLoaded = (loadTimeout) => {
     cy.log('Scrolling page to trigger lazy loading - NCA TESTIFY');
     const scrollToBottom = () => {
@@ -15,6 +55,7 @@ const scrollTillLoaded = (loadTimeout) => {
                 return;
             }
             cy.log('Page bottom reached, waiting for lazy loading images');
+            rewriteInternalImageSources();
             cy.get('img[src], img[srcset]', { timeout: loadTimeout }).should(($imgs) => {
                 $imgs.each((_, element) => {
                     const img = element;
