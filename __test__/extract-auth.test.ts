@@ -3,7 +3,8 @@ import {
   extractAuth,
   applyAuth,
   addCredentialsToInternalLinks,
-  extractAuthForUrl
+  extractAuthForUrl,
+  addCredentialsToUrl
 } from '../src/utils/extractAuth'
 
 describe('extractAuth', () => {
@@ -148,5 +149,81 @@ describe('extractAuthForUrl', () => {
   test('treats non absolute URLs as relative and returns credentials', () => {
     const result = extractAuthForUrl('not-a-url', credentialedBaseUrl)
     expect(result).toEqual({ username: 'nca', password: 'nca' })
+  })
+})
+
+describe('addCredentialsToUrl', () => {
+  const credentialedBaseUrl = 'https://nca:nca@staging.example.com'
+
+  test('adds credentials to relative URLs', () => {
+    const result = addCredentialsToUrl('/img/logo.png', credentialedBaseUrl)
+    expect(result).toBe('https://nca:nca@staging.example.com/img/logo.png')
+  })
+
+  test('adds credentials to absolute internal URLs', () => {
+    const result = addCredentialsToUrl(
+      'https://staging.example.com/img/logo.png',
+      credentialedBaseUrl
+    )
+    expect(result).toBe('https://nca:nca@staging.example.com/img/logo.png')
+  })
+
+  test('adds credentials to protocol relative internal URLs', () => {
+    const result = addCredentialsToUrl(
+      '//staging.example.com/img/logo.png',
+      credentialedBaseUrl
+    )
+    expect(result).toBe('https://nca:nca@staging.example.com/img/logo.png')
+  })
+
+  test('returns external URLs unchanged', () => {
+    const result = addCredentialsToUrl(
+      'https://external-cdn.com/img/hero.png',
+      credentialedBaseUrl
+    )
+    expect(result).toBe('https://external-cdn.com/img/hero.png')
+  })
+
+  test('returns already credentialed URLs unchanged', () => {
+    const result = addCredentialsToUrl(
+      'https://other:auth@staging.example.com/img/logo.png',
+      credentialedBaseUrl
+    )
+    expect(result).toBe('https://other:auth@staging.example.com/img/logo.png')
+  })
+
+  test('returns data URLs unchanged', () => {
+    const result = addCredentialsToUrl(
+      'data:image/png;base64,abcdef',
+      credentialedBaseUrl
+    )
+    expect(result).toBe('data:image/png;base64,abcdef')
+  })
+
+  test('returns blob URLs unchanged', () => {
+    const result = addCredentialsToUrl('blob:https://example.com/uuid')
+    expect(result).toBe('blob:https://example.com/uuid')
+  })
+
+  test('returns anchors unchanged', () => {
+    const result = addCredentialsToUrl('#', credentialedBaseUrl)
+    expect(result).toBe('#')
+  })
+
+  test('returns the URL unchanged when baseUrl has no credentials', () => {
+    const result = addCredentialsToUrl(
+      'https://example.com/img/logo.png',
+      'https://example.com'
+    )
+    expect(result).toBe('https://example.com/img/logo.png')
+  })
+
+  test('falls back to the Cypress baseUrl', () => {
+    vi.stubGlobal('Cypress', {
+      config: vi.fn(() => credentialedBaseUrl)
+    })
+    const result = addCredentialsToUrl('/img/logo.png')
+    expect(result).toBe('https://nca:nca@staging.example.com/img/logo.png')
+    vi.unstubAllGlobals()
   })
 })
